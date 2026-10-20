@@ -31,6 +31,11 @@ const store = {
   get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
   set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode: fine */ } },
 };
+// Where rooms live. Served by our own server, rooms are on the same host; on GitHub Pages (static only),
+// the page names its room server in <meta name="duet-server">.
+const SERVER = document.querySelector('meta[name="duet-server"]')?.content && location.hostname.endsWith('github.io')
+  ? document.querySelector('meta[name="duet-server"]').content : location.host;
+const SECURE = location.protocol === 'https:' || SERVER !== location.host;
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 // ── engine ──────────────────────────────────────────────────────────────────────────
@@ -93,7 +98,7 @@ const invited = params.get('r');
 if (invited && /^[a-z0-9]{4,16}$/.test(invited)) {
   $('#code').value = invited;
   $('#go').textContent = 'step inside';
-  fetch(`/api/room?c=${encodeURIComponent(invited)}`).then((r) => r.json()).then(({ here, full }) => {
+  fetch(`${SECURE ? 'https' : 'http'}://${SERVER}/api/room?c=${encodeURIComponent(invited)}`).then((r) => r.json()).then(({ here, full }) => {
     const note = $('#invited');
     note.hidden = false;
     note.textContent = full ? 'This world already holds two people.' : here.length ? `${here[0]} is waiting for you.` : 'Someone made a world for you.';
@@ -133,8 +138,7 @@ async function begin() {
   buildHud();
   showHint();
 
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  link = new Link(`${proto}://${location.host}/ws?room=${code}`, () => ({ t: 'hello', room: code, name: me.name, color: me.color }));
+  link = new Link(`${SECURE ? 'wss' : 'ws'}://${SERVER}/ws?room=${code}`, () => ({ t: 'hello', room: code, name: me.name, color: me.color }));
   voice = new Voice({ send: (d) => link.send({ t: 'rtc', d }), onStream: hearPartner });
   link
     .on('open', syncClock)
@@ -394,7 +398,7 @@ function updateGoal() {
 }
 
 async function invite() {
-  const url = `${location.origin}/?r=${code}`;
+  const url = `${location.origin}${location.pathname}?r=${code}`; // keeps /duet/ on GitHub Pages
   try {
     if (navigator.share && matchMedia('(pointer: coarse)').matches) await navigator.share({ title: 'duet', text: `${me.name} made a world for you`, url });
     else { await navigator.clipboard.writeText(url); toast('invite link copied — send it to them'); }

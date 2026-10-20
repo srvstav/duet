@@ -10,7 +10,12 @@ export default {
       const code = url.searchParams.get(url.pathname === '/ws' ? 'room' : 'c') ?? '';
       if (!ROOM_RE.test(code)) return new Response('bad room', { status: 400 });
       if (url.pathname === '/ws' && req.headers.get('Upgrade') !== 'websocket') return new Response('expected a websocket', { status: 426 });
-      return env.ROOM.get(env.ROOM.idFromName(code)).fetch(req);
+      const res = await env.ROOM.get(env.ROOM.idFromName(code)).fetch(req);
+      if (url.pathname === '/ws') return res;
+      // The GitHub Pages copy of duet asks who's waiting from another origin.
+      const out = new Response(res.body, res);
+      out.headers.set('Access-Control-Allow-Origin', '*');
+      return out;
     }
     return env.ASSETS.fetch(req);
   },

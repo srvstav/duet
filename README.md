@@ -33,6 +33,10 @@ cloudflared tunnel --url http://localhost:8080
 
 On a slower machine, add `&q=low` to the URL for less grass and fewer trees.
 
+### On GitHub Pages
+
+Live at **https://srvstav.github.io/duet/**. A GitHub Action publishes `public/` on every push to `main`. Pages can't run a server, so the page connects to the Cloudflare Worker for rooms. Set the address in `<meta name="duet-server">` in `public/index.html`.
+
 ### Host it on Cloudflare
 
 The same app runs as a Cloudflare Worker. The files are served as Worker assets, and each room is a Durable Object with WebSocket hibernation, so an empty room costs nothing.
