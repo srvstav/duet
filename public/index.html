@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>duet</title>
+<meta name="description" content="A quiet world for two people. Five landscapes, five pieces of music, one sky.">
+<meta name="theme-color" content="#0d0b14">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='12' cy='16' r='6' fill='%23ffb27a'/%3E%3Ccircle cx='20' cy='16' r='6' fill='%23ff8fab' fill-opacity='.8'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,200..800;1,9..144,200..800&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
+  "@dgreenheck/ez-tree": "https://cdn.jsdelivr.net/npm/@dgreenheck/ez-tree@1.1.0/build/ez-tree.es.js"
+} }
+</script>
+<style>
+:root {
+  --color-ink: #0d0b14;
+  --color-ivory: #fbf3e6;
+  --color-ember: #ffb27a;
+  --color-glass: rgba(16, 13, 24, 0.36);
+  --color-glass-strong: rgba(16, 13, 24, 0.64);
+  --color-line: rgba(251, 243, 230, 0.15);
+  --color-dim: rgba(251, 243, 230, 0.62);
+  --me: var(--color-ember);
+  --them: var(--color-dim);
+  --close: 1;
+  --song: 0;
+  --font-display: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+  --font-mono: 'DM Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --gutter: clamp(16px, 3.2vw, 40px);
+  --ease: cubic-bezier(.2, .7, .1, 1);
+  --glass: blur(20px) saturate(1.3);
+}
+* { box-sizing: border-box; margin: 0; }
+html, body { height: 100%; overflow: hidden; background: var(--color-ink); color: var(--color-ivory); }
+body { font: 300 15px/1.5 var(--font-mono); -webkit-font-smoothing: antialiased; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; background: none; border: 0; }
+kbd { font: 300 9px/1 var(--font-mono); color: var(--color-dim); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+#scene { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; touch-action: none; cursor: grab; }
+#scene:active { cursor: grabbing; }
+.glass { background: var(--color-glass); border: 1px solid var(--color-line); backdrop-filter: var(--glass); -webkit-backdrop-filter: var(--glass); }
+
+/* ── lobby ─────────────────────────────────────────── */
+#lobby {
+  position: fixed; inset: 0; display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(300px, 400px);
+  align-items: end; gap: var(--gutter); padding: var(--gutter) var(--gutter) calc(var(--gutter) * 1.6);
+  background: linear-gradient(100deg, rgba(5, 6, 16, .78) 0%, rgba(5, 6, 16, .35) 45%, rgba(5, 6, 16, 0) 70%),
+              linear-gradient(0deg, rgba(5, 6, 16, .55), rgba(5, 6, 16, 0) 45%);
+  transition: opacity 1.4s var(--ease), filter 1.4s var(--ease);
+}
+.inside #lobby { opacity: 0; filter: blur(14px); pointer-events: none; }
+.eyebrow { font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--color-dim); }
+.eyebrow::before { content: ''; display: inline-block; width: 28px; height: 1px; background: var(--color-ember); vertical-align: middle; margin-right: 12px; }
+#title {
+  font: italic 200 clamp(120px, 23vw, 340px)/.78 var(--font-display);
+  font-variation-settings: 'opsz' 144; letter-spacing: -.045em;
+  margin: .12em 0 .1em -.04em;
+  text-shadow: 0 0 80px rgba(255, 178, 122, .25);
+}
+.blur-letter { display: inline-block; opacity: 0; filter: blur(18px); transform: translateY(.18em); animation: unblur 1.6s var(--ease) var(--d) forwards; }
+@keyframes unblur { to { opacity: 1; filter: blur(0); transform: none; } }
+.lede { max-width: 34ch; font: 300 clamp(17px, 1.6vw, 21px)/1.45 var(--font-display); color: var(--color-dim); }
+.lede em { color: var(--color-ivory); }
+
+.panel { display: grid; gap: 18px; padding: 26px; border-radius: 22px; animation: rise 1.4s var(--ease) .9s both; }
+@keyframes rise { from { opacity: 0; transform: translateY(24px); } }
+.invited { font: italic 400 22px/1.3 var(--font-display); color: var(--color-ember); }
+.panel label.field { display: grid; gap: 6px; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--color-dim); }
+.panel input[type=text] {
+  background: transparent; border: 0; border-bottom: 1px solid var(--color-line); padding: 6px 0 8px;
+  font: 400 26px/1.2 var(--font-display); letter-spacing: -.01em; outline: none; text-transform: none; color: var(--color-ivory);
+  transition: border-color .3s;
+}
+.panel input[type=text]:focus { border-color: var(--color-ember); }
+.panel input::placeholder { color: rgba(251, 243, 230, .3); font-style: italic; }
+fieldset { border: 0; padding: 0; }
+legend { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--color-dim); margin-bottom: 10px; }
+#swatches { display: flex; gap: 10px; flex-wrap: wrap; }
+#swatches input { position: absolute; opacity: 0; pointer-events: none; }
+#swatches label {
+  width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+  background: radial-gradient(circle at 40% 35%, #fff 0 8%, var(--c) 30%, color-mix(in srgb, var(--c) 40%, transparent) 70%);
+  box-shadow: 0 0 0 1px var(--color-line); transition: transform .4s var(--ease), box-shadow .4s;
+}
+#swatches label:hover { transform: scale(1.12); }
+#swatches input:checked + label { box-shadow: 0 0 0 2px var(--color-ink), 0 0 0 3px var(--c), 0 0 24px var(--c); transform: scale(1.12); }
+#swatches input:focus-visible + label { outline: 2px solid var(--color-ivory); outline-offset: 4px; }
+.primary {
+  position: relative; overflow: hidden; padding: 16px 20px; border-radius: 999px;
+  background: var(--color-ivory); color: var(--color-ink);
+  font: italic 500 21px/1 var(--font-display); letter-spacing: -.01em;
+  transition: transform .5s var(--ease), box-shadow .5s;
+}
+.primary:hover { transform: translateY(-2px); box-shadow: 0 14px 40px -12px var(--color-ember); }
+.primary::after { /* a slow shine, after React Bits' <ShinyText> */
+  content: ''; position: absolute; inset: 0; transform: translateX(-120%);
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 178, 122, .55) 50%, transparent 70%);
+  animation: shine 4.5s var(--ease) 2.4s infinite;
+}
+@keyframes shine { 60%, 100% { transform: translateX(120%); } }
+details summary { cursor: pointer; font-size: 12px; color: var(--color-dim); list-style: none; }
+details summary::-webkit-details-marker { display: none; }
+details summary::before { content: '+ '; color: var(--color-ember); }
+details[open] summary::before { content: '\2013  '; }
+details input { margin-top: 8px; width: 100%; }
+.credit { position: fixed; top: var(--gutter); right: var(--gutter); font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--color-dim); }
+.credit::before { content: '\25CF'; color: var(--color-ember); margin-right: 8px; animation: breathe 3s ease-in-out infinite; }
+@keyframes breathe { 50% { opacity: .25; } }
+
+/* ── title card between worlds ─────────────────────── */
+#veil {
+  position: fixed; inset: 0; pointer-events: none; opacity: 0;
+  background: radial-gradient(ellipse at 50% 60%, color-mix(in srgb, var(--veil, #000) 70%, #fff 8%), color-mix(in srgb, var(--veil, #000) 55%, #000));
+  transition: opacity 1.3s var(--ease);
+}
+#veil.on { opacity: 1; }
+#card {
+  position: fixed; left: var(--gutter); bottom: calc(var(--gutter) * 3.6 + 40px); pointer-events: none; max-width: min(92vw, 900px);
+  opacity: 0; transition: opacity 1.6s var(--ease);
+}
+#card.on { opacity: 1; }
+.card-num { font-size: 12px; letter-spacing: .3em; color: var(--color-ember); }
+.card-name { font: italic 200 clamp(64px, 10vw, 150px)/.9 var(--font-display); letter-spacing: -.035em; margin: .1em 0 .18em -.03em; }
+.card-line { font: 300 clamp(18px, 2vw, 24px)/1.3 var(--font-display); opacity: .88; }
+.card-music { margin-top: 22px; display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; font-size: 12px; letter-spacing: .08em; }
+.card-music::before { content: '\266A'; color: var(--color-ember); }
+.card-composer { color: var(--color-dim); }
+.card-credit { display: block; margin-top: 6px; font-size: 10px; letter-spacing: .06em; color: var(--color-dim); opacity: .8; }
+#card.on .card-line, #card.on .card-music, #card.on .card-credit { animation: rise 1.6s var(--ease) .9s both; }
+.where, #card, .tag, .bubble, #log, #goal { text-shadow: 0 1px 18px rgba(0, 0, 0, .4); }
+
+/* ── HUD: three quiet corners and one bar ──────────── */
+#hud { position: fixed; inset: 0; pointer-events: none; animation: rise 1.4s var(--ease) 1.2s both; }
+#hud[hidden] { display: none; }
+#hud button, #hud input, #hud label { pointer-events: auto; }
+.card-on #chat, .card-on #hint, .card-on #goal, .card-on .where { opacity: 0 !important; }
+
+.where { position: absolute; top: var(--gutter); left: var(--gutter); transition: opacity .8s var(--ease); }
+#where-num { font-size: 11px; letter-spacing: .3em; color: var(--color-ember); }
+#where-name { display: block; font: italic 300 30px/1.1 var(--font-display); letter-spacing: -.02em; margin-top: 4px; }
+#where-piece { display: block; font-size: 11px; color: var(--color-dim); margin-top: 6px; letter-spacing: .04em; }
+
+/* The journey: five worlds on one line; the current piece fills its stretch as it plays. */
+#journey { display: flex; align-items: center; margin-top: 14px; }
+.star { position: relative; display: grid; place-items: center; width: 14px; height: 14px; margin-right: 34px; }
+.star:last-child { margin-right: 0; }
+.star::after { content: ''; position: absolute; left: 14px; width: 34px; height: 1px; background: var(--color-line); }
+.star:last-child::after { display: none; }
+.star.past::after { background: var(--color-ember); opacity: .6; }
+.star.active::after { background: linear-gradient(90deg, var(--color-ember) calc(var(--song) * 100%), var(--color-line) calc(var(--song) * 100%)); }
+.star-dot { width: 9px; height: 9px; border-radius: 50%; border: 1px solid var(--color-dim); transition: all .5s var(--ease); }
+.star.past .star-dot { background: var(--color-ember); border-color: var(--color-ember); opacity: .7; }
+.star.active .star-dot { width: 13px; height: 13px; background: var(--color-ember); border-color: var(--color-ember); box-shadow: 0 0 16px var(--color-ember); }
+.star:hover .star-dot { transform: scale(1.3); border-color: var(--color-ivory); }
+.star-tip {
+  position: absolute; top: 22px; left: -6px; white-space: nowrap; font-size: 11px; letter-spacing: .05em; text-align: left;
+  opacity: 0; transform: translateY(-4px); transition: all .35s var(--ease); pointer-events: none;
+}
+.star-tip b { font-weight: 400; color: var(--color-ember); margin-right: 4px; }
+.star-tip em { display: block; font: italic 300 14px/1.2 var(--font-display); color: var(--color-dim); }
+.star:hover .star-tip, .star:focus-visible .star-tip { opacity: 1; transform: none; }
+
+.corner { position: absolute; top: var(--gutter); right: var(--gutter); display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 999px; }
+.corner button, .vol { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 13px; border-radius: 999px; font-size: 12px; letter-spacing: .04em; transition: background .3s; }
+.corner button:hover { background: rgba(251, 243, 230, .08); }
+.corner svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.5; }
+.vol input { width: 74px; accent-color: var(--color-ember); }
+.vol svg { fill: var(--color-dim); stroke: none; }
+#invite.nudge { color: var(--color-ember); animation: nudge 2.4s ease-out infinite; }
+@keyframes nudge { 0% { box-shadow: 0 0 0 0 rgba(255, 178, 122, .45); } 70%, 100% { box-shadow: 0 0 0 12px rgba(255, 178, 122, 0); } }
+
+#bar {
+  position: absolute; left: 50%; bottom: calc(var(--gutter) + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  display: flex; align-items: center; gap: 2px; padding: 6px; border-radius: 999px;
+  max-width: calc(100vw - 32px); overflow-x: auto; scrollbar-width: none;
+}
+.sep { width: 1px; height: 28px; background: var(--color-line); margin: 0 6px; flex: none; }
+
+/* Presence: your light, their light, and how close you are, as one small picture. */
+#presence { display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 14px 0 12px; border-radius: 999px; flex: none; transition: background .3s; }
+#presence:hover { background: rgba(251, 243, 230, .07); }
+.pair { position: relative; display: flex; align-items: center; width: 54px; height: 14px; }
+.pair .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; box-shadow: 0 0 12px currentColor; z-index: 1; }
+.pair .me { background: var(--me); color: var(--me); }
+.pair .them { background: var(--them); color: var(--them); margin-left: auto; }
+.pair .link { position: absolute; left: 10px; right: 10px; top: 50%; height: 1px; background: linear-gradient(90deg, var(--me), var(--them)); opacity: calc(.15 + var(--close) * .85); }
+.pair .link::after { content: ''; position: absolute; inset: -2px 0; background: inherit; filter: blur(3px); opacity: var(--close); }
+.alone .pair .them { background: transparent; border: 1px dashed var(--color-dim); box-shadow: none; animation: breathe 2.2s ease-in-out infinite; }
+.alone .pair .link { opacity: .15; }
+.holding .pair .link { height: 2px; opacity: 1; }
+.presence-text { font-size: 12px; white-space: nowrap; color: var(--color-dim); }
+.presence-text b { font-weight: 400; color: var(--color-ivory); }
+
+#reacts { display: flex; gap: 2px; }
+.react { position: relative; display: grid; place-items: center; width: 50px; height: 50px; border-radius: 50%; flex: none; transition: background .3s, transform .5s var(--ease); }
+.react:hover { background: rgba(251, 243, 230, .09); transform: translateY(-3px); }
+.react:active { transform: scale(.92); }
+.react svg { width: 21px; height: 21px; fill: var(--color-ivory); stroke: var(--color-ivory); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.react[data-k=wave] svg, .react[data-k=wish] svg, .react[data-k=beacon] svg, #hand svg { fill: none; }
+.react[data-k=wish] svg path:first-child, .react[data-k=beacon] svg circle:first-child { fill: var(--color-ivory); }
+.react-label {
+  position: absolute; bottom: calc(100% + 14px); left: 50%; transform: translate(-50%, 6px); opacity: 0; pointer-events: none; white-space: nowrap;
+  font: italic 400 15px/1 var(--font-display); padding: 7px 12px; border-radius: 999px; background: var(--color-glass-strong); transition: all .35s var(--ease);
+}
+.react:hover .react-label { opacity: 1; transform: translate(-50%, 0); }
+#hand { display: inline-flex; align-items: center; gap: 9px; height: 50px; padding: 0 16px; border-radius: 999px; flex: none; font: italic 400 16px/1 var(--font-display); transition: background .3s, color .3s; }
+#hand svg { width: 21px; height: 21px; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; }
+#hand:hover { background: rgba(251, 243, 230, .08); }
+#hand.on { color: var(--color-ember); background: rgba(255, 178, 122, .12); }
+#hand .when-on { display: none; }
+#hand.on .when-on { display: inline; }
+#hand.on .when-off { display: none; }
+.holding #hand { color: var(--color-ivory); background: linear-gradient(90deg, color-mix(in srgb, var(--me) 35%, transparent), color-mix(in srgb, var(--them) 35%, transparent)); }
+#say {
+  width: 200px; height: 40px; padding: 0 16px; border-radius: 999px; outline: none; flex: none;
+  background: rgba(251, 243, 230, .05); border: 1px solid transparent; font: italic 300 15px/1 var(--font-display);
+  transition: width .5s var(--ease), border-color .3s, background .3s;
+}
+#say:focus { width: 300px; border-color: var(--color-ember); background: rgba(16, 13, 24, .5); }
+#say::placeholder { color: var(--color-dim); }
+#voice { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; flex: none; margin-left: 4px; transition: background .3s, color .3s; }
+#voice svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.5; }
+#voice:hover { background: rgba(251, 243, 230, .08); }
+#voice.on { color: var(--color-ink); background: var(--color-ember); }
+
+#goal {
+  position: absolute; left: 50%; bottom: calc(var(--gutter) + 84px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px; font-size: 11px; letter-spacing: .08em; color: var(--color-dim); white-space: nowrap;
+  transition: opacity .8s var(--ease), color .8s;
+}
+.goal-needle { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--color-line); display: grid; place-items: center; transition: transform .25s linear; }
+.goal-needle::after { content: ''; width: 0; height: 0; border: 4px solid transparent; border-bottom: 7px solid var(--color-ember); margin-top: -6px; }
+#goal.done { color: var(--color-ember); }
+#goal.done .goal-needle { border-color: var(--color-ember); }
+
+#chat { position: absolute; left: var(--gutter); bottom: calc(var(--gutter) + 84px + env(safe-area-inset-bottom)); width: min(340px, 34vw); transition: opacity .8s var(--ease); }
+#log { list-style: none; padding: 0; display: grid; gap: 4px; font: 300 16px/1.35 var(--font-display); }
+#log li { animation: rise .7s var(--ease) both; }
+#log li:not(:nth-last-child(-n+3)) { opacity: .35; }
+#log b { font: 400 11px/1 var(--font-mono); letter-spacing: .06em; margin-right: 6px; }
+
+#hint {
+  position: absolute; left: 50%; bottom: calc(var(--gutter) + 116px + env(safe-area-inset-bottom)); transform: translate(-50%, 8px);
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 18px; max-width: min(720px, calc(100vw - 32px));
+  font-size: 11px; color: var(--color-dim); opacity: 0; pointer-events: none; transition: all .9s var(--ease);
+}
+#hint.on { opacity: 1; transform: translate(-50%, 0); }
+#hint kbd { font: inherit; color: var(--color-ivory); padding: 1px 6px; border: 1px solid var(--color-line); border-radius: 5px; margin-right: 4px; }
+
+#labels { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+.tag, .bubble { position: absolute; left: 0; top: 0; will-change: transform; }
+.tag { font-size: 11px; letter-spacing: .12em; text-transform: lowercase; color: var(--c); transition: opacity .4s; padding-bottom: 6px; }
+.tag.reaching::after { content: ' \00b7 reaching for you'; color: var(--color-ivory); animation: breathe 1.6s ease-in-out infinite; }
+.bubble {
+  max-width: 260px; padding: 10px 15px; margin-top: -10px; border-radius: 18px 18px 18px 4px;
+  background: var(--color-glass-strong); border: 1px solid color-mix(in srgb, var(--c) 45%, transparent);
+  font: 300 17px/1.35 var(--font-display); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 0 30px -8px var(--c); animation: pop .6s var(--ease) both;
+}
+@keyframes pop { from { opacity: 0; filter: blur(8px); } }
+#seek { position: fixed; left: 0; top: 0; pointer-events: none; display: grid; place-items: center; gap: 6px; }
+#seek[hidden] { display: none; }
+.seek-arrow { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--color-glass-strong); border: 1px solid var(--c); box-shadow: 0 0 18px var(--c); }
+.seek-arrow::after { content: ''; width: 0; height: 0; border: 5px solid transparent; border-left: 8px solid var(--c); margin-left: 6px; }
+.seek-name { font-size: 10px; letter-spacing: .1em; color: var(--c); white-space: nowrap; text-shadow: 0 1px 10px #000; }
+#seek.calling .seek-arrow { animation: nudge 1.4s ease-out infinite; }
+
+#toast {
+  position: fixed; left: 50%; top: calc(var(--gutter) + 6px); transform: translate(-50%, -10px); opacity: 0; pointer-events: none;
+  font: italic 300 19px/1.3 var(--font-display); text-align: center; max-width: min(520px, calc(100vw - 32px));
+  padding: 9px 20px; border-radius: 999px; transition: all .7s var(--ease);
+}
+#toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+.click-spark { position: fixed; width: 2px; height: 10px; background: var(--color-ember); border-radius: 2px; pointer-events: none; transform-origin: 50% 0;
+  transform: translate(-50%, 0) rotate(var(--a)) translateY(6px); animation: spark .5s ease-out forwards; }
+@keyframes spark { to { transform: translate(-50%, 0) rotate(var(--a)) translateY(26px) scaleY(.2); opacity: 0; } }
+
+#stick, #updown { display: none; }
+@media (pointer: coarse) {
+  #stick { display: block; position: absolute; left: var(--gutter); bottom: calc(var(--gutter) + 84px + env(safe-area-inset-bottom)); width: 112px; height: 112px; border-radius: 50%; touch-action: none; pointer-events: auto; }
+  #stick span { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px; border-radius: 50%; background: var(--color-ivory); opacity: .85; transition: transform .15s; }
+  #updown { display: grid; gap: 10px; position: absolute; right: var(--gutter); bottom: calc(var(--gutter) + 84px + env(safe-area-inset-bottom)); }
+  #updown button { width: 52px; height: 52px; border-radius: 50%; touch-action: none; }
+  #chat { bottom: calc(var(--gutter) + 210px); }
+  #hint, kbd { display: none; }
+}
+@media (max-width: 860px) {
+  #lobby { grid-template-columns: 1fr; align-content: end; gap: 22px; overflow-y: auto; }
+  #title { font-size: clamp(110px, 38vw, 200px); }
+  .lede { font-size: 16px; }
+  .vol, .presence-text, #hand .label { display: none; }
+  #bar { left: 16px; right: 16px; transform: none; }
+  #say { width: 120px; }
+  #say:focus { width: 180px; }
+  #chat { width: calc(100vw - 2 * var(--gutter)); }
+  #goal { bottom: calc(var(--gutter) + 76px); }
+  #where-name { font-size: 24px; }
+  .star { margin-right: 20px; }
+  .star::after { width: 20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+</style>
+</head>
+<body>
+<canvas id="scene" aria-label="a shared three-dimensional landscape"></canvas>
+<div id="veil"></div>
+
+<div id="card" aria-live="polite">
+  <span class="card-num"></span>
+  <h2 class="card-name"></h2>
+  <p class="card-line"></p>
+  <p class="card-music"><span class="card-piece"></span><span class="card-composer"></span></p>
+  <span class="card-credit"></span>
+</div>
+
+<section id="lobby">
+  <div class="lobby-copy">
+    <p class="eyebrow">a world for two &middot; five pieces &middot; one sky</p>
+    <h1 id="title">duet</h1>
+    <p class="lede">Five landscapes, from dawn to the morning after, each one set to music older than both of you. Bring <em>one</em> person. No one else will ever be there.</p>
+  </div>
+  <form id="enter" class="panel glass" autocomplete="off">
+    <p class="invited" id="invited" hidden></p>
+    <label class="field">your name
+      <input type="text" id="name" maxlength="24" placeholder="what they call you" autocomplete="nickname" required>
+    </label>
+    <fieldset><legend>your light</legend><div id="swatches"></div></fieldset>
+    <button class="primary" id="go" type="submit">open a world</button>
+    <details><summary>have a code from them?</summary><input type="text" id="code" maxlength="16" placeholder="their code" autocapitalize="off" spellcheck="false"></details>
+  </form>
+  <p class="credit">best with headphones</p>
+</section>
+
+<main id="hud" hidden>
+  <header class="where">
+    <span id="where-num"></span>
+    <span id="where-name"></span>
+    <span id="where-piece"></span>
+    <nav id="journey" aria-label="the journey"></nav>
+  </header>
+
+  <div class="corner glass">
+    <button id="invite" title="copy the invite link"><svg viewBox="0 0 24 24"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>invite</button>
+    <label class="vol" title="music volume"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/></svg><input id="vol" type="range" min="0" max="1.2" step="0.01" value="0.9" aria-label="music volume"></label>
+    <button id="help" title="how to move (?)" aria-label="how to move">?</button>
+  </div>
+
+  <div id="chat"><ol id="log"></ol></div>
+  <div id="goal"><span class="goal-needle"></span><span class="goal-text"></span></div>
+  <div id="hint">
+    <span><kbd>drag</kbd>look around</span><span><kbd>W A S D</kbd>drift</span><span><kbd>space</kbd><kbd>shift</kbd>rise &amp; sink</span>
+    <span><kbd>H</kbd>reach for their hand</span><span><kbd>F</kbd>find them</span><span><kbd>1&ndash;6</kbd>react</span><span><kbd>enter</kbd>talk</span><span><kbd>V</kbd>voice</span>
+  </div>
+
+  <footer id="bar" class="glass" role="toolbar" aria-label="together">
+    <button id="presence" class="alone" title="glide to them (F)">
+      <span class="pair" aria-hidden="true"><span class="dot me"></span><span class="link"></span><span class="dot them"></span></span>
+      <span class="presence-text">waiting for them</span>
+    </button>
+    <span class="sep"></span>
+    <div id="reacts"></div>
+    <span class="sep"></span>
+    <button id="hand" class="spark-click" title="reach for their hand (H)">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 13c-1.5-1.5-1.5-3.5 0-5s3.5-1.5 5 0l1 1 1-1c1.5-1.5 3.5-1.5 5 0"/><path d="M4 15c3 3 6 4 8 4s5-1 8-4"/></svg>
+      <span class="label"><span class="when-off">hold hands</span><span class="when-on">reaching&hellip;</span></span>
+    </button>
+    <span class="sep"></span>
+    <input id="say" maxlength="280" placeholder="say something&hellip;" aria-label="say something">
+    <button id="voice" title="talk (V)" aria-label="voice"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+  </footer>
+
+  <div id="stick" class="glass" aria-hidden="true"><span></span></div>
+  <div id="updown"><button class="glass" data-v="1" aria-label="rise">&#9650;</button><button class="glass" data-v="-1" aria-label="sink">&#9660;</button></div>
+</main>
+
+<div id="labels"></div>
+<div id="seek" hidden><span class="seek-arrow"></span><span class="seek-name"></span></div>
+<div id="toast" class="glass" role="status" aria-live="polite"></div>
+
+<script type="module" src="./main.js"></script>
+</body>
+</html>

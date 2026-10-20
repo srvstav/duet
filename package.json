@@ -1,0 +1,19 @@
+{
+  "name": "duet",
+  "version": "1.0.0",
+  "description": "A quiet 3D world for two people. Five landscapes, five pieces of music, one sky.",
+  "license": "ISC",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev:cf": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.151.3"
+  }
+}
